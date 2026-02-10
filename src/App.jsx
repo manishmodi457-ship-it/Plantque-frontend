@@ -16,7 +16,7 @@ import {
   Wind,
   ExternalLink,
   Trash2,
-  CheckCircle,
+  CheckCircle, 
   AlertCircle,
   Loader2,
   X,
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 // --- Configuration ---
+// Ensure this matches your Render URL exactly without a trailing slash
 const API_BASE_URL = "https://plantque.onrender.com"; 
 
 const App = () => {
@@ -66,7 +67,7 @@ const App = () => {
       img.src = imageDataUrl;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1000; // Increased resolution for better identification
+        const MAX_WIDTH = 1000; 
         const MAX_HEIGHT = 1000;
         let width = img.width;
         let height = img.height;
@@ -116,9 +117,8 @@ const App = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         
-        // Check for hardware zoom capabilities
         const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities();
+        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
         
         if (capabilities.zoom) {
           setHasZoomSupport(true);
@@ -128,11 +128,10 @@ const App = () => {
         }
       }
     } catch (err) {
-      setErrorMsg("Camera access nahi mila. Settings check karein.");
+      setErrorMsg("Camera access denied. Please check your permissions.");
     }
   };
 
-  // Zoom Handler Algorithm
   const handleZoomChange = (value) => {
     const newZoom = parseFloat(value);
     setZoomLevel(newZoom);
@@ -169,7 +168,7 @@ const App = () => {
     return plantKeywords.some(keyword => text.toLowerCase().includes(keyword));
   };
 
-  // --- 4. Secure Backend Communication ---
+  // --- 4. Secure Backend Communication (FIXED CONNECTION) ---
   const handleIdentify = async () => {
     setIsScanning(true);
     setErrorMsg(null);
@@ -189,11 +188,14 @@ const App = () => {
         })
       });
 
+      if (!response.ok) {
+        // If it's a 404, the URL might be wrong or server is spinning up
+        if (response.status === 404) throw new Error("Backend route not found. Check if /api/identify exists.");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Server Busy (Cold Start). Wait 30 seconds and try again.");
+      }
+
       const data = await response.json();
-
-      if (!response.ok) throw new Error(data.detail || "Server connection error. Kripya 1 minute baad koshish karein.");
-      if (data.error) throw new Error(data.error);
-
       setApiResult(data);
       
       const newHistory = [{
@@ -244,7 +246,7 @@ const App = () => {
         const data = await res.json();
         setVoiceQuery(data.answer);
       } catch (e) {
-        setErrorMsg("Voice query fail ho gayi.");
+        setErrorMsg("Voice query failed.");
       }
     };
     recognition.start();
@@ -285,7 +287,7 @@ const App = () => {
             <div className="text-red-500 mb-4 flex justify-center bg-red-50 w-16 h-16 rounded-full items-center mx-auto">
                 <AlertCircle size={32} />
             </div>
-            <h3 className="text-center font-black text-2xl mb-2 text-slate-900">Oops! Error</h3>
+            <h3 className="text-center font-black text-2xl mb-2 text-slate-900">Connection Error</h3>
             <p className="text-center text-slate-500 mb-8 text-sm leading-relaxed">{errorMsg}</p>
             <button onClick={() => setErrorMsg(null)} className="w-full bg-emerald-600 text-white py-5 rounded-[24px] font-black shadow-xl shadow-emerald-200 active:scale-95 transition-all">GOT IT</button>
           </div>
@@ -368,10 +370,10 @@ const App = () => {
         </div>
       )}
 
-      {/* --- 2. ADVANCED CAMERA VIEW (ZOOM IMPLEMENTED) --- */}
+      {/* --- 2. ADVANCED CAMERA VIEW --- */}
       {view === 'camera' && (
         <div className="fixed inset-0 bg-black z-[100] flex flex-col">
-          <div className="absolute top-8 left-6 right-6 flex justify-between items-center z-20">
+          <div className="absolute top-8 left-6 right-6 flex justify-between items-center z-20 text-white">
             <button onClick={() => setView('home')} className="p-4 rounded-3xl bg-black/40 backdrop-blur-xl text-white border border-white/10"><ArrowLeft size={24} /></button>
             <div className="bg-black/40 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 text-white text-[10px] font-black tracking-widest uppercase">Live Scanners</div>
             <button onClick={() => setIsFlashOn(!isFlashOn)} className="p-4 rounded-3xl bg-black/40 backdrop-blur-xl text-white border border-white/10">
@@ -426,16 +428,14 @@ const App = () => {
 
       {/* --- 3. PREVIEW & ANALYZE VIEW --- */}
       {view === 'preview' && (
-        <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col">
-          <div className="p-8 flex items-center justify-between text-white">
+        <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col p-6">
+          <div className="p-4 flex items-center justify-between text-white">
             <button onClick={() => { setView('camera'); startCamera(); }} className="flex items-center gap-2 font-black text-xs uppercase tracking-widest bg-white/10 px-4 py-2 rounded-xl"><ArrowLeft size={16} /> Retake</button>
-            <div className="flex gap-4">
-              <button onClick={() => setPreviewRotation(prev => (prev + 90) % 360)} className="p-3 bg-white/10 rounded-2xl border border-white/10"><RotateCw size={22} /></button>
-            </div>
+            <button onClick={() => setPreviewRotation(prev => (prev + 90) % 360)} className="p-3 bg-white/10 rounded-2xl border border-white/10"><RotateCw size={22} /></button>
           </div>
 
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="relative w-full max-h-[60vh] rounded-[50px] overflow-hidden shadow-2xl border-4 border-emerald-500/20">
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="relative w-full max-h-[60vh] rounded-[50px] overflow-hidden shadow-2xl border-4 border-emerald-500/20 bg-black">
               <img 
                 src={capturedImage} 
                 className="w-full h-full object-contain transition-transform duration-500" 
@@ -449,39 +449,32 @@ const App = () => {
                    </div>
                    <p className="text-2xl font-black italic tracking-tighter uppercase mb-2">Analyzing Data</p>
                    <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest opacity-60">Pixel Mapping & Health Diagnostic</p>
+                   <p className="text-[10px] mt-4 text-emerald-300">Wait karein, Render pehli request mein time leta hai.</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="p-10 bg-white rounded-t-[60px] flex flex-col gap-6 shadow-2xl border-t border-slate-100">
-            <div className="flex justify-between items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <span>Optimized Resolution</span>
-                <span>Encrypted API Node</span>
-            </div>
-            <button 
-              onClick={handleIdentify} 
-              disabled={isScanning} 
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-6 rounded-[30px] flex items-center justify-center gap-4 shadow-2xl shadow-emerald-200 disabled:opacity-50 transition-all uppercase tracking-tighter text-xl"
-            >
-              {isScanning ? "Processing..." : <><Search size={28} /> RUN ANALYSIS</>}
-            </button>
-          </div>
+          <button 
+            onClick={handleIdentify} 
+            disabled={isScanning} 
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-6 rounded-[30px] flex items-center justify-center gap-4 shadow-2xl shadow-emerald-200 disabled:opacity-50 transition-all uppercase tracking-tighter text-xl mt-6"
+          >
+            {isScanning ? "Processing..." : <><Search size={28} /> RUN ANALYSIS</>}
+          </button>
         </div>
       )}
 
-      {/* --- 4. RESULT DASHBOARD (PREMIUM UI) --- */}
+      {/* --- 4. RESULT DASHBOARD --- */}
       {view === 'result' && apiResult && (
         <div className="max-w-4xl mx-auto pb-16 animate-in slide-in-from-bottom duration-700">
-          <div className="relative h-[450px] overflow-hidden">
-            <img src={compressedImage} className="w-full h-full object-cover scale-105" alt="Result" />
-            <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
-            <button onClick={() => setView('home')} className="absolute top-8 left-6 p-4 bg-black/30 backdrop-blur-xl text-white rounded-3xl border border-white/20"><ArrowLeft size={24} /></button>
+          <div className="relative h-[400px]">
+            <img src={compressedImage} className="w-full h-full object-cover rounded-b-[60px] shadow-2xl" alt="Result" />
+            <button onClick={() => setView('home')} className="absolute top-8 left-6 p-4 bg-black/30 backdrop-blur-xl text-white rounded-3xl"><ArrowLeft size={24} /></button>
           </div>
 
-          <div className="px-6 -mt-32 relative z-10">
-            {/* Main Info Card */}
-            <div className="bg-white rounded-[45px] p-10 shadow-2xl shadow-emerald-900/10 border border-slate-100 mb-8">
+          <div className="px-6 -mt-10 relative z-10">
+            <div className="bg-white rounded-[45px] p-10 shadow-2xl border border-slate-100 mb-8">
               <div className="flex justify-between items-start mb-8">
                 <div>
                   <h1 className="text-4xl font-black text-emerald-950 tracking-tighter leading-none mb-1">{apiResult.identity.name}</h1>
@@ -496,19 +489,18 @@ const App = () => {
                 <div className="relative w-24 h-24 flex items-center justify-center">
                    <svg className="w-full h-full transform -rotate-90">
                      <circle cx="48" cy="48" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-emerald-100" />
-                     <circle cx="48" cy="48" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={264} strokeDashoffset={264 - (264 * apiResult.health.health_percentage) / 100} className="text-emerald-600 transition-all duration-1000 stroke-round" />
+                     <circle cx="48" cy="48" r="42" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={264} strokeDashoffset={264 - (264 * apiResult.health.health_percentage) / 100} className="text-emerald-600 transition-all duration-1000" />
                    </svg>
                    <span className="absolute font-black text-xl text-emerald-950">{apiResult.health.health_percentage}%</span>
                 </div>
                 <div>
-                  <h4 className="font-black text-emerald-950 text-xl tracking-tight">VITAL HEALTH SCORE</h4>
+                  <h4 className="font-black text-emerald-950 text-xl tracking-tight uppercase">Health Score</h4>
                   <p className="text-xs text-emerald-700 font-bold uppercase tracking-widest mb-1">Status: {apiResult.health.health_percentage > 75 ? 'Optimal' : 'Needs Care'}</p>
-                  <p className="text-xs text-slate-500 font-medium">Alerts: {apiResult.health.issues}</p>
+                  <p className="text-xs text-slate-500 font-medium">{apiResult.health.issues}</p>
                 </div>
               </div>
             </div>
 
-            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-5 ml-2">Environmental Needs</h3>
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-orange-50 p-6 rounded-[35px] border border-orange-100">
                 <Sun className="text-orange-500 mb-4" size={32} />
@@ -540,8 +532,8 @@ const App = () => {
             </div>
 
             <div className="flex gap-4">
-                <button className="flex-1 bg-white border-4 border-emerald-600 text-emerald-600 font-black py-6 rounded-[30px] text-xl active:scale-95 transition-all shadow-xl shadow-emerald-200">CARE PLAN</button>
-                <button onClick={() => window.open(`https://www.amazon.in/s?k=${apiResult.identity.name}+fertilizer`, '_blank')} className="flex-1 bg-emerald-600 text-white font-black py-6 rounded-[30px] text-xl active:scale-95 transition-all shadow-xl shadow-emerald-500/30">SHOP SUPPLIES</button>
+                <button onClick={() => setView('home')} className="flex-1 bg-white border-4 border-emerald-600 text-emerald-600 font-black py-6 rounded-[30px] text-xl active:scale-95 transition-all shadow-xl shadow-emerald-200">BACK HOME</button>
+                <button onClick={() => window.open(`https://www.amazon.in/s?k=${apiResult.identity.name}+fertilizer`, '_blank')} className="flex-1 bg-emerald-600 text-white font-black py-6 rounded-[30px] text-xl active:scale-95 transition-all shadow-xl shadow-emerald-500/30 uppercase">Buy Items</button>
             </div>
           </div>
         </div>
@@ -550,7 +542,7 @@ const App = () => {
       {/* --- 5. HISTORY VIEW --- */}
       {view === 'history' && (
         <div className="max-w-4xl mx-auto min-h-screen bg-white">
-          <div className="p-6 bg-emerald-950 text-white flex items-center justify-between sticky top-0 z-50">
+          <div className="p-6 bg-emerald-950 text-white flex items-center justify-between sticky top-0 z-50 shadow-xl">
             <div className="flex items-center gap-4">
                 <button onClick={() => setView('home')} className="p-2 hover:bg-white/10 rounded-xl"><ArrowLeft size={28} /></button>
                 <h1 className="text-2xl font-black uppercase tracking-tighter">Activity Log</h1>
